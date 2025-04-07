@@ -1,4 +1,4 @@
-# NODEJS-APP-DEMO
+# Nodejs-Demo-App
 
 A simple Node.js application containerized with Docker and automated with GitHub Actions.
 
@@ -142,13 +142,18 @@ To use this workflow, you must add these secrets to your GitHub repository:
 - `DOCKER_HUB_USERNAME`: Your Docker Hub username
 - `DOCKER_HUB_TOKEN`: A Docker Hub access token (not your password)
 
+## Docker Hub Repository
+
+The application is published to Docker Hub and available at:
+[https://hub.docker.com/repository/docker/slayerop15/nodejs-demo-app/general](https://hub.docker.com/repository/docker/slayerop15/nodejs-demo-app/general)
+
 ## Usage
 
 After the workflow completes successfully, you can run the application with:
 
 ```bash
-docker pull yourusername/nodejs-demo-app:latest
-docker run -p 3000:3000 yourusername/nodejs-demo-app
+docker pull slayerop15/nodejs-demo-app:latest
+docker run -p 3000:3000 slayerop15/nodejs-demo-app
 ```
 
 Then access the application at http://localhost:3000
