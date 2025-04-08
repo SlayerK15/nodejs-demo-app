@@ -1,15 +1,8 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:18-alpine'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
     
     environment {
-        DOCKER_HUB_CREDS = credentials('docker-hub-credentials')
         IMAGE_NAME = 'nodejs-demo-app'
-        DOCKER_HUB_USERNAME = "${env.DOCKER_HUB_CREDS_USR}"
     }
     
     stages {
@@ -25,19 +18,11 @@ pipeline {
             }
         }
         
-        stage('Run Tests') {
-            steps {
-                echo 'Running tests...'
-                // Currently no tests defined, but you can add them here
-                // sh 'npm test'
-            }
-        }
         
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t $IMAGE_NAME:latest .'
-                sh 'docker tag $IMAGE_NAME:latest $DOCKER_HUB_USERNAME/$IMAGE_NAME:latest'
-                sh 'docker tag $IMAGE_NAME:latest $DOCKER_HUB_USERNAME/$IMAGE_NAME:$BUILD_NUMBER'
+                sh 'docker tag $IMAGE_NAME:latest $IMAGE_NAME:$BUILD_NUMBER'
             }
         }
         
@@ -63,24 +48,23 @@ pipeline {
             }
         }
         
-        stage('Push to Docker Hub') {
-            steps {
-                sh 'echo $DOCKER_HUB_CREDS_PSW | docker login -u $DOCKER_HUB_CREDS_USR --password-stdin'
-                sh 'docker push $DOCKER_HUB_USERNAME/$IMAGE_NAME:latest'
-                sh 'docker push $DOCKER_HUB_USERNAME/$IMAGE_NAME:$BUILD_NUMBER'
-            }
-        }
-        
         stage('Deploy') {
             steps {
-                echo 'Deploying to production...'
+                echo 'Deploying to local environment...'
+                sh '''
+                    # Stop existing container if it exists
+                    docker stop nodejs-app-container || true
+                    docker rm nodejs-app-container || true
+                    
+                    # Run the new version
+                    docker run -d -p 3000:3000 --name nodejs-app-container $IMAGE_NAME:latest
+                '''
             }
         }
     }
     
     post {
         always {
-            sh 'docker logout'
             cleanWs()
         }
         success {
