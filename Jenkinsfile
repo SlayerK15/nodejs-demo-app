@@ -36,14 +36,15 @@ pipeline {
         
         stage('Test Application') {
             steps {
-                sh '''
+                sh '''#!/bin/bash
                     docker run -d -p 3000:3000 --name app-container $IMAGE_NAME:latest
                     sleep 5
                     
                     response=$(curl -s http://localhost:3000)
                     echo "Response: $response"
                     
-                    if [[ "$response" == *"Hello from nodejs-demo-app"* ]]; then
+                    # Use grep instead of [[ ... ]] syntax for wider compatibility
+                    if echo "$response" | grep -q "Hello from nodejs-demo-app"; then
                         echo "Test passed! Application is working as expected."
                     else
                         echo "Test failed! Application response doesn't match expected output."
@@ -66,7 +67,7 @@ pipeline {
         
         stage('Deploy Locally') {
             steps {
-                sh '''
+                sh '''#!/bin/bash
                     # Stop any existing container with the same name
                     docker stop nodejs-demo-app || true
                     docker rm nodejs-demo-app || true
