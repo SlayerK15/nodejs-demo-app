@@ -3,9 +3,18 @@ pipeline {
     
     environment {
         IMAGE_NAME = 'nodejs-demo-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
     
     stages {
+        stage('Verify Environment') {
+            steps {
+                sh 'node --version'
+                sh 'npm --version'
+                sh 'docker --version'
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -18,11 +27,12 @@ pipeline {
             }
         }
         
+
         
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t $IMAGE_NAME:latest .'
-                sh 'docker tag $IMAGE_NAME:latest $IMAGE_NAME:$BUILD_NUMBER'
+                sh 'docker tag $IMAGE_NAME:latest $IMAGE_NAME:$IMAGE_TAG'
             }
         }
         
@@ -48,16 +58,29 @@ pipeline {
             }
         }
         
-        stage('Deploy') {
+        stage('Archive Artifacts') {
             steps {
-                echo 'Deploying to local environment...'
+                // Archive the application files for potential use in deployment
+                archiveArtifacts artifacts: '**', excludes: 'node_modules/**'
+                echo "Docker image $IMAGE_NAME:$IMAGE_TAG is ready for deployment"
+            }
+        }
+        
+        stage('Deploy Locally') {
+            steps {
                 sh '''
-                    # Stop existing container if it exists
-                    docker stop nodejs-app-container || true
-                    docker rm nodejs-app-container || true
+                    # Stop any existing container with the same name
+                    docker stop nodejs-demo-app || true
+                    docker rm nodejs-demo-app || true
                     
-                    # Run the new version
-                    docker run -d -p 3000:3000 --name nodejs-app-container $IMAGE_NAME:latest
+                    # Deploy the application locally
+                    docker run -d -p 3000:3000 --name nodejs-demo-app $IMAGE_NAME:latest
+                    
+                    # Verify deployment
+                    sleep 3
+                    curl -s http://localhost:3000
+                    
+                    echo "Application successfully deployed locally and available at http://localhost:3000"
                 '''
             }
         }
@@ -73,5 +96,4 @@ pipeline {
         failure {
             echo 'Pipeline failed!'
         }
-    }
 }
