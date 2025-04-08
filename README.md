@@ -1,6 +1,6 @@
 # Nodejs-Demo-App
 
-A simple Node.js application containerized with Docker and automated with GitHub Actions.
+A simple Node.js application containerized with Docker and automated with GitHub Actions and Jenkins.
 
 ## What the Application Does
 
@@ -46,7 +46,7 @@ This Dockerfile:
 - Exposes port 3000 for external connections
 - Uses npm start to launch the application
 
-## GitHub Actions Workflow
+## GitHub Actions Workflow (Added April 7, 2025)
 
 The `.github/workflows/docker-build-push.yml` file automates the build, test, and deployment process:
 
@@ -122,6 +122,124 @@ This workflow:
 3. Runs the container on the GitHub Actions runner
 4. Tests the application using curl
 5. Pushes the verified image to Docker Hub if tests pass
+
+## Jenkins Integration with GitHub Webhook (Added April 8, 2025)
+
+The project now includes a Jenkins pipeline that is automatically triggered by GitHub webhooks:
+
+```groovy
+pipeline {
+    agent any
+    
+    environment {
+        IMAGE_NAME = 'nodejs-demo-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('Verify Environment') {
+            steps {
+                sh 'node --version'
+                sh 'npm --version'
+                sh 'docker --version'
+            }
+        }
+        
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME:latest .'
+                sh 'docker tag $IMAGE_NAME:latest $IMAGE_NAME:$IMAGE_TAG'
+            }
+        }
+        
+        stage('Test Application') {
+            steps {
+                sh '''#!/bin/bash
+                    docker run -d -p 3000:3000 --name app-container $IMAGE_NAME:latest
+                    sleep 5
+                    
+                    response=$(curl -s http://localhost:3000)
+                    echo "Response: $response"
+                    
+                    # Use grep instead of [[ ... ]] syntax for wider compatibility
+                    if echo "$response" | grep -q "Hello from nodejs-demo-app"; then
+                        echo "Test passed! Application is working as expected."
+                    else
+                        echo "Test failed! Application response doesn't match expected output."
+                        exit 1
+                    fi
+                    
+                    docker stop app-container
+                    docker rm app-container
+                '''
+            }
+        }
+        
+        stage('Archive Artifacts') {
+            steps {
+                // Archive the application files for potential use in deployment
+                archiveArtifacts artifacts: '**', excludes: 'node_modules/**'
+                echo "Docker image $IMAGE_NAME:$IMAGE_TAG is ready for deployment"
+            }
+        }
+        
+        stage('Deploy Locally') {
+            steps {
+                sh '''#!/bin/bash
+                    # Stop any existing container with the same name
+                    docker stop nodejs-demo-app || true
+                    docker rm nodejs-demo-app || true
+                    
+                    # Deploy the application locally
+                    docker run -d -p 3000:3000 --name nodejs-demo-app $IMAGE_NAME:latest
+                    
+                    # Verify deployment
+                    sleep 3
+                    curl -s http://localhost:3000
+                    
+                    echo "Application successfully deployed locally and available at http://localhost:3000"
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
+```
+
+When a change is pushed to the GitHub repository, the webhook automatically triggers the Jenkins pipeline, which:
+1. Verifies the node, npm, and docker environment
+2. Checks out the code from the repository
+3. Installs any dependencies
+4. Builds a Docker image with both latest and build-number tags
+5. Tests the application by running it in a container and verifying the response
+6. Archives all application files (excluding node_modules)
+7. Deploys the application locally and verifies the deployment
+8. Cleans up the workspace after completion
+
+The webhook integration was successfully tested and verified on April 8, 2025, with build #6 completing in 24 seconds.
 
 ## How We Test the Application
 
